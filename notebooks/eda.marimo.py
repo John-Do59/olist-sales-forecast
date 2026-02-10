@@ -1,70 +1,187 @@
-# eda.marimo.py
-# ---------------------------------
-# EDA et préparation du dataset Olist pour ML / Power BI
-# ---------------------------------
+# %% Section 0: Config Jupyter et librairies
+# Permet d'afficher les graphiques inline dans Jupyter / VSCode Interactive
+try:
+    get_ipython().run_line_magic('matplotlib', 'inline')
+except NameError:
+    pass  # Ne fait rien si on n'est pas dans Jupyter
 
-import pandas as pd
 import os
+import pandas as pd
+import matplotlib.pyplot as plt
+import seaborn as sns
 
-# ---------------------------------
-# 1. Chargement des données
-# ---------------------------------
+# Config graphiques
+sns.set(style="whitegrid")
+plt.rcParams["figure.figsize"] = (12, 6)
 
-# Chemin absolu du projet
-BASE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))  # remonte à la racine
+# %% Section 1: Chemins du projet
+# Compatible script normal et Jupyter
+try:
+    BASE_DIR = os.path.dirname(os.path.abspath(os.path.dirname(__file__)))
+except NameError:
+    # Si on est dans Jupyter Notebook
+    BASE_DIR = "/Users/amaury/olist-sales-forecast"
+
 RAW_DIR = os.path.join(BASE_DIR, "data", "raw")
 PROCESSED_DIR = os.path.join(BASE_DIR, "data", "processed")
 
-print("Chemin RAW_DIR :", RAW_DIR)
+# Vérification des fichiers
+print("RAW_DIR :", RAW_DIR)
 print("Fichiers disponibles :", os.listdir(RAW_DIR))
 
-os.makedirs(PROCESSED_DIR, exist_ok=True)
-
-
-# Chargements des données 
-
+# %% Section 2: Chargement des données
+customers = pd.read_csv(os.path.join(RAW_DIR, "olist_customers_dataset.csv"))
 orders = pd.read_csv(os.path.join(RAW_DIR, "olist_orders_dataset.csv"))
 order_items = pd.read_csv(os.path.join(RAW_DIR, "olist_order_items_dataset.csv"))
 products = pd.read_csv(os.path.join(RAW_DIR, "olist_products_dataset.csv"))
-customers = pd.read_csv(os.path.join(RAW_DIR, "olist_customers_dataset.csv"))
 sellers = pd.read_csv(os.path.join(RAW_DIR, "olist_sellers_dataset.csv"))
 payments = pd.read_csv(os.path.join(RAW_DIR, "olist_order_payments_dataset.csv"))
 reviews = pd.read_csv(os.path.join(RAW_DIR, "olist_order_reviews_dataset.csv"))
+categories = pd.read_csv(os.path.join(RAW_DIR, "product_category_name_translation.csv"))
 
-# Jointures principales
-
-df = orders.merge(order_items, on="order_id", how="left") \
+# %% Section 3: Merge datasets
+df = orders.merge(customers, on="customer_id", how="left") \
+           .merge(order_items, on="order_id", how="left") \
            .merge(products, on="product_id", how="left") \
-           .merge(customers, on="customer_id", how="left") \
+           .merge(sellers, on="seller_id", how="left") \
            .merge(payments, on="order_id", how="left") \
-           .merge(reviews, on="order_id", how="left")
+           .merge(reviews, on="order_id", how="left") \
+           .merge(categories, on="product_category_name", how="left")
 
-# Aperçu rapide
-
+# %% Section 4: Aperçu des données
 print("Dataset final :")
 print(df.head())
 print("\nShape :", df.shape)
 
-# Analyses simples
-
+# %% Section 5: Analyses rapides avec visualisations
 # Nombre de commandes par état
-orders_per_state = df.groupby("customer_state")["order_id"].nunique().sort_values(ascending=False)
+state_counts = df.groupby("customer_state")["order_id"].count().sort_values(ascending=False)
 print("\nNombre de commandes par état :")
-print(orders_per_state.head())
+print(state_counts)
+
+# Graphique commandes par état
+sns.barplot(x=state_counts.index, y=state_counts.values, palette="viridis")
+plt.title("Nombre de commandes par état")
+plt.ylabel("Nombre de commandes")
+plt.xlabel("État")
+plt.show()
 
 # Top 10 produits les plus vendus
 top_products = df.groupby("product_id")["order_id"].count().sort_values(ascending=False).head(10)
 print("\nTop 10 produits les plus vendus :")
 print(top_products)
 
-# Retard moyen de livraison (en jours)
-df["shipping_delay_days"] = (pd.to_datetime(df["order_approved_at"]) - pd.to_datetime(df["order_purchase_timestamp"])).dt.days
-print("\nRetard moyen de livraison (jours) :", df["shipping_delay_days"].mean())
+# Graphique top produits
+sns.barplot(x=top_products.values, y=top_products.index, palette="magma")
+plt.title("Top 10 produits les plus vendus")
+plt.xlabel("Nombre de commandes")
+plt.ylabel("Product ID")
+plt.show()
 
-# -----------------------------
-# Export dataset final
-# -----------------------------
+# Retard moyen de livraison (jours)
+if 'order_delivered_customer_date' in df.columns and 'order_estimated_delivery_date' in df.columns:
+    df['delivery_delay'] = (pd.to_datetime(df['order_delivered_customer_date']) - 
+                            pd.to_datetime(df['order_estimated_delivery_date'])).dt.days
+    print("\nRetard moyen de livraison (jours) :", df['delivery_delay'].mean())
+
+    # Histogramme des retards
+    sns.histplot(df['delivery_delay'], bins=50, kde=True)
+    plt.title("Distribution des retards de livraison (jours)")
+    plt.xlabel("Jours de retard")
+    plt.ylabel("Nombre de commandes")
+    plt.show()
+
+
+# %% Section 7: Évolution des commandes dans le temps
+print("\n--- Évolution des commandes dans le temps ---")
+
+# Convertir la colonne en datetime dans df
+df['order_purchase_timestamp'] = pd.to_datetime(df['order_purchase_timestamp'], errors='coerce')
+
+# Extraire le mois
+df['order_month'] = df['order_purchase_timestamp'].dt.to_period('M')
+
+# Nombre de commandes par mois
+monthly_orders = df.groupby('order_month')['order_id'].count()
+print(monthly_orders.head(10))
+
+# Graphique
+sns.lineplot(x=monthly_orders.index.astype(str), y=monthly_orders.values, marker='o')
+plt.title("Évolution des commandes par mois")
+plt.xlabel("Mois")
+plt.ylabel("Nombre de commandes")
+plt.xticks(rotation=45)
+plt.show()
+
+
+# %% Section 8: Analyse des retards de livraison par état
+print("\n--- Analyse des retards de livraison par état ---")
+# On utilise la colonne delivery_delay déjà créée
+state_delay = df.groupby("customer_state")["delivery_delay"].mean().sort_values(ascending=False)
+print(state_delay)
+
+# Boxplot des retards par état
+sns.boxplot(x='customer_state', y='delivery_delay', data=df)
+plt.title("Distribution des retards de livraison par état")
+plt.xlabel("État")
+plt.ylabel("Jours de retard")
+plt.show()
+
+# %% Section 9: Top clients et top vendeurs
+print("\n--- Top 10 clients les plus actifs ---")
+top_customers = df.groupby("customer_id")["order_id"].count().sort_values(ascending=False).head(10)
+print(top_customers)
+
+sns.barplot(x=top_customers.values, y=top_customers.index, palette="coolwarm")
+plt.title("Top 10 clients par nombre de commandes")
+plt.xlabel("Nombre de commandes")
+plt.ylabel("Client ID")
+plt.show()
+
+print("\n--- Top 10 vendeurs les plus actifs ---")
+top_sellers = df.groupby("seller_id")["order_id"].count().sort_values(ascending=False).head(10)
+print(top_sellers)
+
+sns.barplot(x=top_sellers.values, y=top_sellers.index, palette="cool")
+plt.title("Top 10 vendeurs par nombre de commandes")
+plt.xlabel("Nombre de commandes")
+plt.ylabel("Seller ID")
+plt.show()
+
+# %% Section 10: Analyse des ventes par catégorie de produit
+# Top catégories de produits
+category_counts = df.groupby("product_category_name_english")["order_id"].count().sort_values(ascending=False)
+print("\nTop 10 catégories de produits les plus vendues :")
+print(category_counts.head(10))
+
+# Graphique barres top 10 catégories
+sns.barplot(x=category_counts.head(10).values, y=category_counts.head(10).index, palette="Spectral")
+plt.title("Top 10 catégories de produits par nombre de commandes")
+plt.xlabel("Nombre de commandes")
+plt.ylabel("Catégorie")
+plt.show()
+
+
+# %% Section 11: Analyse des modes de paiement
+# Répartition des types de paiement
+payment_counts = df.groupby("payment_type")["order_id"].count()
+print("\nNombre de commandes par type de paiement :")
+print(payment_counts)
+
+# Graphique barres
+sns.barplot(x=payment_counts.values, y=payment_counts.index, palette="coolwarm")
+plt.title("Nombre de commandes par type de paiement")
+plt.xlabel("Nombre de commandes")
+plt.ylabel("Type de paiement")
+plt.show()
+
+# Montant moyen par type de paiement
+payment_mean = df.groupby("payment_type")["payment_value"].mean().sort_values(ascending=False)
+print("\nMontant moyen par type de paiement :")
+print(payment_mean)
+
+
+# %% Section 6: Export dataset complet
+os.makedirs(PROCESSED_DIR, exist_ok=True)
 df.to_csv(os.path.join(PROCESSED_DIR, "olist_full_dataset.csv"), index=False)
 print("\nDataset complet exporté dans :", PROCESSED_DIR)
-
-
