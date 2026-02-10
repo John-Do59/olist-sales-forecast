@@ -1,0 +1,17 @@
+# Environnement
+venv/
+.env
+__pycache__/
+
+# Données
+data/raw/
+data/processed/
+
+# Python
+*.pyc
+*.pyo
+*.pyd
+
+# OS
+.DS_Store
+
