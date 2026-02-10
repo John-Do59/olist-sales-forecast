@@ -289,6 +289,60 @@ plt.ylabel("Catégorie de produit")
 plt.show()
 
 
+# %% Section X: Nettoyage et vérification des données
+print("\n--- Nettoyage et vérification des données ---")
+
+# Vérifier les doublons
+num_duplicates = df.duplicated().sum()
+print(f"Nombre de doublons dans le dataset : {num_duplicates}")
+
+# Supprimer les doublons si nécessaire
+if num_duplicates > 0:
+    df = df.drop_duplicates()
+    print("Doublons supprimés.")
+
+# Vérification des valeurs manquantes par colonne
+missing_values = df.isnull().sum()
+print("\nValeurs manquantes par colonne :")
+print(missing_values[missing_values > 0])
+
+# Optionnel : on peut remplir ou supprimer certaines valeurs manquantes
+# Exemple : remplir les valeurs manquantes de delivery_delay par 0 si nécessaire
+if 'delivery_delay' in df.columns:
+    df['delivery_delay'] = df['delivery_delay'].fillna(0)
+
+# Vérification des types de données
+print("\nTypes de données des colonnes :")
+print(df.dtypes)
+
+# Statistiques rapides pour les colonnes numériques
+print("\nStatistiques descriptives des colonnes numériques :")
+print(df.describe())
+
+# Analyse rapide des montants et frais de livraison
+print("\nMontant moyen et médian des commandes :")
+if 'price' in df.columns and 'freight_value' in df.columns:
+    print("Prix moyen :", df['price'].mean())
+    print("Prix médian :", df['price'].median())
+    print("Frais de port moyen :", df['freight_value'].mean())
+    print("Frais de port médian :", df['freight_value'].median())
+
+# Boxplot des montants pour visualiser les outliers
+if 'price' in df.columns:
+    import matplotlib.pyplot as plt
+    import seaborn as sns
+    sns.boxplot(x=df['price'])
+    plt.title("Distribution du prix des commandes")
+    plt.xlabel("Prix")
+    plt.show()
+
+# Histogramme des montants
+if 'price' in df.columns:
+    sns.histplot(df['price'], bins=50, kde=True)
+    plt.title("Histogramme du prix des commandes")
+    plt.xlabel("Prix")
+    plt.ylabel("Nombre de commandes")
+    plt.show()
 
 
 # %% Section 6: Export dataset complet
