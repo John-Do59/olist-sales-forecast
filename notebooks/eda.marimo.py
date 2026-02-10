@@ -180,6 +180,116 @@ payment_mean = df.groupby("payment_type")["payment_value"].mean().sort_values(as
 print("\nMontant moyen par type de paiement :")
 print(payment_mean)
 
+# %% Section 10: Distribution des montants des commandes
+print("\n--- Distribution des montants des commandes ---")
+
+# Histogramme
+sns.histplot(df["payment_value"], bins=50, kde=True)
+plt.title("Distribution du montant des commandes")
+plt.xlabel("Montant de la commande")
+plt.ylabel("Nombre de commandes")
+plt.show()
+
+# Boxplot
+sns.boxplot(x=df["payment_value"])
+plt.title("Boxplot du montant des commandes (outliers)")
+plt.xlabel("Montant de la commande")
+plt.show()
+
+# %% Section 11: Montant moyen des commandes par État
+print("\n--- Montant moyen des commandes par État ---")
+
+state_payment = (
+    df.groupby("customer_state")["payment_value"]
+    .mean()
+    .sort_values(ascending=False)
+)
+
+print(state_payment)
+
+sns.barplot(
+    x=state_payment.values,
+    y=state_payment.index
+)
+plt.title("Montant moyen des commandes par État")
+plt.xlabel("Montant moyen")
+plt.ylabel("État")
+plt.show()
+
+# %% Section 12: Retards de livraison par catégorie de produit
+print("\n--- Retards de livraison par catégorie de produit ---")
+
+# On enlève les NaN pour éviter les graphiques cassés
+delay_by_category = df.dropna(subset=["delivery_delay", "product_category_name_english"])
+
+sns.boxplot(
+    data=delay_by_category,
+    x="delivery_delay",
+    y="product_category_name_english"
+)
+plt.title("Retards de livraison par catégorie de produit")
+plt.xlabel("Jours de retard")
+plt.ylabel("Catégorie de produit")
+plt.show()
+
+# %% Section 13: Retard moyen par mois
+print("\n--- Retard moyen de livraison par mois ---")
+
+monthly_delay = (
+    df.groupby("order_month")["delivery_delay"]
+    .mean()
+)
+
+print(monthly_delay.head())
+
+sns.lineplot(
+    x=monthly_delay.index.astype(str),
+    y=monthly_delay.values,
+    marker="o"
+)
+plt.title("Retard moyen de livraison par mois")
+plt.xlabel("Mois")
+plt.ylabel("Jours de retard")
+plt.xticks(rotation=45)
+plt.show()
+
+# %% Section 14: Répartition des avis clients
+print("\n--- Répartition des notes clients ---")
+
+review_counts = df["review_score"].value_counts().sort_index()
+print(review_counts)
+
+sns.barplot(
+    x=review_counts.index,
+    y=review_counts.values
+)
+plt.title("Répartition des notes clients")
+plt.xlabel("Note")
+plt.ylabel("Nombre d'avis")
+plt.show()
+
+# %% Section 15: Note moyenne par catégorie de produit
+print("\n--- Note moyenne par catégorie de produit ---")
+
+review_by_category = (
+    df.groupby("product_category_name_english")["review_score"]
+    .mean()
+    .sort_values(ascending=False)
+)
+
+print(review_by_category)
+
+sns.barplot(
+    x=review_by_category.values,
+    y=review_by_category.index
+)
+plt.title("Note moyenne par catégorie de produit")
+plt.xlabel("Note moyenne")
+plt.ylabel("Catégorie de produit")
+plt.show()
+
+
+
 
 # %% Section 6: Export dataset complet
 os.makedirs(PROCESSED_DIR, exist_ok=True)
